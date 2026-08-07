@@ -25,7 +25,7 @@ KEEP_PUNCT = ".,!?;:'\u3002\uff0c\u3001\uff01\uff1f\uff1b\uff1a()\uff08\uff09\u2
 DROP_CHARS = "*#`|\\<>{}[]^~\u3010\u3011\u300a\u300b\u3008\u3009\u300c\u300d\u300e\u300f\u3014\u3015\uff1c\uff1e\uff03\uff0a"
 
 # Quotes: usually silent, but noisy in SSML and sometimes spoken. Dropped.
-QUOTE_CHARS = "\"\u201c\u201d\u201e\u201f\u2018\u2019\u00ab\u00bb\u300c\u300d"
+QUOTE_CHARS = '"\u201c\u201d\u201e\u201f\u2018\u2019\u00ab\u00bb\u300c\u300d'
 
 # Every dash-like character (incl. Chinese \u7834\u6298\u53f7 \u2014\u2014).
 DASHES = "-\u2010\u2011\u2012\u2013\u2014\u2015\u2500\uff0d\u2043"
@@ -41,12 +41,18 @@ _CODE_FENCE = re.compile(r"^\s*(?:```|~~~).*$", re.MULTILINE)
 _LINE_MARKER = re.compile(
     r"^[ \t]*(?:#{1,6}[ \t]+|>+[ \t]*|[-*+\u2022\u00b7\u25cf\u25cb\u25a0\u25aa\u203b][ \t]+)"
 )
-_TABLE_SEP = re.compile(r"^[ \t]*\|?[ \t]*:?-{2,}:?[ \t]*(?:\|[ \t]*:?-{2,}:?[ \t]*)*\|?[ \t]*$")
-_DUP_PUNCT = re.compile(r"([.,!?;:\u3002\uff0c\u3001\uff01\uff1f\uff1b\uff1a])(?:[ \t]*\1)+")
+_TABLE_SEP = re.compile(
+    r"^[ \t]*\|?[ \t]*:?-{2,}:?[ \t]*(?:\|[ \t]*:?-{2,}:?[ \t]*)*\|?[ \t]*$"
+)
+_DUP_PUNCT = re.compile(
+    r"([.,!?;:\u3002\uff0c\u3001\uff01\uff1f\uff1b\uff1a])(?:[ \t]*\1)+"
+)
 _SPACES = re.compile(r"[ \t\u00a0\u3000]+")
 _BLANK_LINES = re.compile(r"\n{2,}")
 # Characters that survived but carry no speech value at the edge of a line.
-_EDGE_PUNCT = re.compile(r"^[\s.,;:!?\u3002\uff0c\u3001\uff1b\uff1a]+|[\s,;:\u3001\uff0c\uff1b\uff1a]+$")
+_EDGE_PUNCT = re.compile(
+    r"^[\s.,;:!?\u3002\uff0c\u3001\uff1b\uff1a]+|[\s,;:\u3001\uff0c\uff1b\uff1a]+$"
+)
 
 
 def _comma_for(text: str) -> str:
@@ -111,23 +117,25 @@ def clean(text: str, *, drop_urls: bool = True) -> str:
         if (stripped := _EDGE_PUNCT.sub("", line).strip())
     )
     # drop space before punctuation left behind by removals ("word ." -> "word.")
-    text = re.sub(r" +([.,!?;:\u3002\uff0c\u3001\uff01\uff1f\uff1b\uff1a])", r"\1", text)
+    text = re.sub(
+        r" +([.,!?;:\u3002\uff0c\u3001\uff01\uff1f\uff1b\uff1a])", r"\1", text
+    )
     return text.strip()
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("-i", "--in", dest="infile", help="input file (default: stdin)")
-    parser.add_argument("-o", "--out", dest="outfile", help="output file (default: stdout)")
+    parser.add_argument(
+        "-o", "--out", dest="outfile", help="output file (default: stdout)"
+    )
     parser.add_argument(
         "--keep-urls", action="store_true", help="do not remove URLs from the text"
     )
     args = parser.parse_args()
 
     raw = (
-        open(args.infile, encoding="utf-8").read()
-        if args.infile
-        else sys.stdin.read()
+        open(args.infile, encoding="utf-8").read() if args.infile else sys.stdin.read()
     )
     result = clean(raw, drop_urls=not args.keep_urls)
 
