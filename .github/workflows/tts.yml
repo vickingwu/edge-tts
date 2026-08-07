@@ -56,6 +56,11 @@ on:
         description: "音调 / Pitch（例：+0Hz / -50Hz / +30Hz）"
         required: false
         default: "+0Hz"
+      clean_text:
+        description: "自动过滤会被读出来的符号（Markdown 标记、破折号、表情、URL 等）"
+        required: false
+        type: boolean
+        default: true
       subtitles:
         description: "同时生成字幕文件 (.srt)"
         required: false
@@ -90,12 +95,22 @@ jobs:
           VOLUME: ${{ inputs.volume }}
           PITCH: ${{ inputs.pitch }}
           SUBTITLES: ${{ inputs.subtitles }}
+          CLEAN_TEXT: ${{ inputs.clean_text }}
           FILENAME: ${{ inputs.filename }}
         run: |
           set -euo pipefail
           mkdir -p out
 
-          printf '%s' "$TEXT" > text.txt
+          printf '%s' "$TEXT" > raw.txt
+          if [ "$CLEAN_TEXT" = "true" ]; then
+            python .github/scripts/clean_text.py --in raw.txt --out text.txt
+            echo "----- text after filtering -----"
+            cat text.txt
+            echo
+            echo "--------------------------------"
+          else
+            cp raw.txt text.txt
+          fi
 
           voice="$VOICE"
           if [ -n "${VOICE_CUSTOM// /}" ]; then
