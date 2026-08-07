@@ -1,0 +1,138 @@
+name: TTS - 文字转语音 (edge-tts)
+
+# 在 GitHub 的 Actions 页面填写文字 -> 生成 mp3 -> 作为 Artifact 下载到本地
+# Fill in the text on the GitHub Actions page -> generate mp3 -> download the artifact locally
+
+on:
+  workflow_dispatch:
+    inputs:
+      text:
+        description: "文字内容 / Text to speak"
+        required: true
+        default: "Hello, world!"
+      voice:
+        description: "声音 / Voice"
+        required: true
+        default: "en-US-JennyNeural"
+        type: choice
+        options:
+          - en-US-JennyNeural
+          - en-US-AriaNeural
+          - en-US-MichelleNeural
+          - en-US-AnaNeural
+          - en-US-GuyNeural
+          - en-US-ChristopherNeural
+          - en-US-EricNeural
+          - en-US-RogerNeural
+          - en-US-SteffanNeural
+          - en-GB-SoniaNeural
+          - en-GB-RyanNeural
+          - en-AU-NatashaNeural
+          - zh-CN-XiaoxiaoNeural
+          - zh-CN-XiaoyiNeural
+          - zh-CN-YunxiNeural
+          - zh-CN-YunjianNeural
+          - zh-CN-YunyangNeural
+          - zh-HK-HiuMaanNeural
+          - zh-TW-HsiaoChenNeural
+          - ja-JP-NanamiNeural
+          - ko-KR-SunHiNeural
+          - fr-FR-DeniseNeural
+          - de-DE-KatjaNeural
+          - es-ES-ElviraNeural
+      voice_custom:
+        description: "自定义声音 ShortName（填了就覆盖上面的下拉选择，留空则用下拉值）"
+        required: false
+        default: ""
+      rate:
+        description: "语速 / Rate（例：+0% / -20% / +50%）"
+        required: false
+        default: "+0%"
+      volume:
+        description: "音量 / Volume（例：+0% / -50% / +100%）"
+        required: false
+        default: "+0%"
+      pitch:
+        description: "音调 / Pitch（例：+0Hz / -50Hz / +30Hz）"
+        required: false
+        default: "+0Hz"
+      subtitles:
+        description: "同时生成字幕文件 (.srt)"
+        required: false
+        type: boolean
+        default: false
+      filename:
+        description: "输出文件名（不含扩展名）"
+        required: false
+        default: "output"
+
+jobs:
+  tts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install edge-tts from this repo
+        run: python -m pip install --upgrade pip && python -m pip install .
+
+      - name: Generate speech
+        id: gen
+        env:
+          # 通过环境变量传参，避免把用户输入直接拼进 shell（防注入）
+          TEXT: ${{ inputs.text }}
+          VOICE: ${{ inputs.voice }}
+          VOICE_CUSTOM: ${{ inputs.voice_custom }}
+          RATE: ${{ inputs.rate }}
+          VOLUME: ${{ inputs.volume }}
+          PITCH: ${{ inputs.pitch }}
+          SUBTITLES: ${{ inputs.subtitles }}
+          FILENAME: ${{ inputs.filename }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+
+          printf '%s' "$TEXT" > text.txt
+
+          voice="$VOICE"
+          if [ -n "${VOICE_CUSTOM// /}" ]; then
+            voice="${VOICE_CUSTOM// /}"
+          fi
+
+          name="$(printf '%s' "$FILENAME" | tr -cd '[:alnum:]._-')"
+          [ -n "$name" ] || name="output"
+
+          rate="${RATE:-+0%}"
+          volume="${VOLUME:-+0%}"
+          pitch="${PITCH:-+0Hz}"
+
+          args=(
+            --file text.txt
+            --voice "$voice"
+            --rate="$rate"
+            --volume="$volume"
+            --pitch="$pitch"
+            --write-media "out/${name}.mp3"
+          )
+          if [ "$SUBTITLES" = "true" ]; then
+            args+=( --write-subtitles "out/${name}.srt" )
+          fi
+
+          echo "voice=$voice rate=$rate volume=$volume pitch=$pitch subtitles=$SUBTITLES"
+          edge-tts "${args[@]}"
+
+          ls -l out
+          echo "artifact_name=tts-${name}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload result (mp3 + optional srt)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.gen.outputs.artifact_name }}
+          path: |
+            out/*.mp3
+            out/*.srt
+          if-no-files-found: error
+          retention-days: 7
